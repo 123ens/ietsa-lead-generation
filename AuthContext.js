@@ -1,10 +1,18 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { GoogleLogin } from 'react-google-login';
+import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import FacebookLogin from 'react-facebook-login';
 import jwt_decode from 'jwt-decode';
 
 const AuthContext = createContext(null);
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
@@ -12,26 +20,22 @@ export const AuthProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    // Check for stored token on mount
+    // Check for existing session
     const token = localStorage.getItem('token');
     if (token) {
-      try {
-        const decoded = jwt_decode(token);
-        setUser(decoded);
-      } catch (error) {
-        localStorage.removeItem('token');
-      }
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
     }
     setLoading(false);
   }, []);
 
   const login = async (email, password) => {
     try {
+      setError(null);
       const response = await axios.post('/api/auth/login', { email, password });
       const { token, user } = response.data;
       localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
-      setError(null);
       return user;
     } catch (error) {
       setError(error.response?.data?.message || 'Login failed');
@@ -41,11 +45,12 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
+      setError(null);
       const response = await axios.post('/api/auth/register', userData);
       const { token, user } = response.data;
       localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       setUser(user);
-      setError(null);
       return user;
     } catch (error) {
       setError(error.response?.data?.message || 'Registration failed');
@@ -55,19 +60,21 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     localStorage.removeItem('token');
+    delete axios.defaults.headers.common['Authorization'];
     setUser(null);
-    setError(null);
   };
 
-  const handleGoogleLogin = async (response) => {
+  const handleGoogleLogin = async (credentialResponse) => {
     try {
-      const { data } = await axios.post('/api/auth/google', {
-        token: response.tokenId
-      });
-      const { token, user } = data;
-      localStorage.setItem('token', token);
-      setUser(user);
       setError(null);
+      const response = await axios.post('/api/auth/google', {
+        credential: credentialResponse.credential
+      });
+      const { token, user } = response.data;
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
+      return user;
     } catch (error) {
       setError(error.response?.data?.message || 'Google login failed');
       throw error;
@@ -76,45 +83,59 @@ export const AuthProvider = ({ children }) => {
 
   const handleFacebookLogin = async (response) => {
     try {
-      const { data } = await axios.post('/api/auth/facebook', {
-        accessToken: response.accessToken
-      });
-      const { token, user } = data;
-      localStorage.setItem('token', token);
-      setUser(user);
       setError(null);
+      const { accessToken, userID } = response;
+      const authResponse = await axios.post('/api/auth/facebook', {
+        accessToken,
+        userID
+      });
+      const { token, user } = authResponse.data;
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(user);
+      return user;
     } catch (error) {
       setError(error.response?.data?.message || 'Facebook login failed');
       throw error;
     }
   };
 
-  const verifyEmail = async (token) => {
-    try {
-      await axios.get(`/api/auth/verify-email/${token}`);
-      setError(null);
-    } catch (error) {
-      setError(error.response?.data?.message || 'Email verification failed');
-      throw error;
-    }
-  };
-
   const requestPasswordReset = async (email) => {
     try {
-      await axios.post('/api/auth/forgot-password', { email });
       setError(null);
+      await axios.post('/api/auth/forgot-password', { email });
     } catch (error) {
       setError(error.response?.data?.message || 'Password reset request failed');
       throw error;
     }
   };
 
-  const resetPassword = async (token, password) => {
+  const resetPassword = async (token, newPassword) => {
     try {
-      await axios.post('/api/auth/reset-password', { token, password });
       setError(null);
+      await axios.post('/api/auth/reset-password', { token, newPassword });
     } catch (error) {
       setError(error.response?.data?.message || 'Password reset failed');
+      throw error;
+    }
+  };
+
+  const verifyEmail = async (token) => {
+    try {
+      setError(null);
+      await axios.post('/api/auth/verify-email', { token });
+    } catch (error) {
+      setError(error.response?.data?.message || 'Email verification failed');
+      throw error;
+    }
+  };
+
+  const resendVerificationEmail = async () => {
+    try {
+      setError(null);
+      await axios.post('/api/auth/resend-verification');
+    } catch (error) {
+      setError(error.response?.data?.message || 'Failed to resend verification email');
       throw error;
     }
   };
@@ -128,36 +149,33 @@ export const AuthProvider = ({ children }) => {
     logout,
     handleGoogleLogin,
     handleFacebookLogin,
-    verifyEmail,
     requestPasswordReset,
-    resetPassword
+    resetPassword,
+    verifyEmail,
+    resendVerificationEmail
   };
 
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
-    </AuthContext.Provider>
+    <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
+      <AuthContext.Provider value={value}>
+        {children}
+      </AuthContext.Provider>
+    </GoogleOAuthProvider>
   );
 };
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
+export const GoogleLoginButton = ({ onSuccess, onFailure }) => {
+  return (
+    <GoogleLogin
+      onSuccess={onSuccess}
+      onError={onFailure}
+      useOneTap
+      theme="filled_blue"
+      size="large"
+      width="100%"
+    />
+  );
 };
-
-export const GoogleLoginButton = ({ onSuccess, onFailure }) => (
-  <GoogleLogin
-    clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}
-    buttonText="Login with Google"
-    onSuccess={onSuccess}
-    onFailure={onFailure}
-    cookiePolicy={'single_host_origin'}
-    className="google-login-button"
-  />
-);
 
 export const FacebookLoginButton = ({ onSuccess, onFailure }) => (
   <FacebookLogin
