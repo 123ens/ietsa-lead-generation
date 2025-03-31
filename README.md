@@ -82,6 +82,8 @@ API documentation is available at `/api-docs` when running the server.
 4. Push to the branch
 5. Create a new Pull Request
 
+[![Netlify Status](https://api.netlify.com/api/v1/badges/3f5d1bac-df11-4912-be11-143e43df3900/deploy-status)](https://app.netlify.com/sites/eitsa/deploys)
+
 ## License
 
 This project is licensed under the MIT License - see the LICENSE file for details. 
