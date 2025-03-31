@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "950721003358",
+    "project_id": "eistsa",
+    "storage_bucket": "eistsa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:950721003358:android:6c616411d4079dcf3959cf",
+        "android_client_info": {
+          "package_name": "eitsa.now137"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAO8nxaAjse6ZmxF0Mqndi9pL5iW1s2pYI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
