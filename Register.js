@@ -14,7 +14,8 @@ import {
   Paper,
   Grid
 } from '@mui/material';
-import { useAuth, GoogleLoginButton, FacebookLoginButton } from '../../contexts/AuthContext';
+import { useAuth, GoogleLoginButton } from '../../contexts/AuthContext';
+import { FacebookLogin } from '@greatsumini/react-facebook-login';
 
 const validationSchema = Yup.object({
   firstName: Yup.string()
@@ -201,10 +202,23 @@ const Register = () => {
               onSuccess={handleGoogleSuccess}
               onFailure={(error) => console.error('Google login failed:', error)}
             />
-            <FacebookLoginButton
+            <FacebookLogin
               onSuccess={handleFacebookSuccess}
-              onFailure={(error) => console.error('Facebook login failed:', error)}
-            />
+              onFail={(error) => console.error('Facebook login failed:', error)}
+              className="facebook-login-button"
+              style={{
+                backgroundColor: '#4267B2',
+                color: '#fff',
+                fontSize: '16px',
+                padding: '12px 24px',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                width: '100%'
+              }}
+            >
+              Continue with Facebook
+            </FacebookLogin>
           </Box>
 
           <Box sx={{ mt: 3, textAlign: 'center' }}>
